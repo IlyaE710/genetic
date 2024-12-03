@@ -30,27 +30,69 @@ def initialize_population(size, start_node, graph, edges):
 
 # Кроссовер
 def crossover(parent1, parent2):
+    if len(parent1) - 2 == 0 or len(parent2) - 2 == 0:
+        print(max(parent1, parent2))
+        return max(parent1, parent2)
     cut1 = random.randint(1, len(parent1) - 2)
     cut2 = random.randint(1, len(parent2) - 2)
     child = parent1[:cut1] + parent2[cut2:]
     return child
 
 # Мутация
-def mutate(path):
-    if len(path) > 2:
-        i = random.randint(0, len(path) - 2)
-        j = random.randint(0, len(path) - 2)
-        path[i], path[j] = path[j], path[i]
+# def mutate(path):
+#     if len(path) > 2:
+#         i = random.randint(0, len(path) - 2)
+#         j = random.randint(0, len(path) - 2)
+#         path[i], path[j] = path[j], path[i]
+#         path.append(path[j])
+#         if len(path) == 6 and path[0] == 'C':
+#             print(path)
 
+def mutate(path, graph):
+    # Мутация увеличением или уменьшением длины пути
+    action = random.choice(['increase', 'decrease', 'swap', 'reshuffle'])
+
+    max_path_length = len(graph) + 2  # Максимальная длина пути
+
+    if action == 'increase' and len(path) < max_path_length:  # Увеличиваем путь, если не достигли максимальной длины
+        new_node = random.choice(list(graph.keys()))  # Случайная вершина
+        path.append(new_node)
+        print(f"Добавлена вершина {new_node}. Новый путь: {path}")
+    
+    elif action == 'decrease' and len(path) > len(graph):  # Уменьшаем путь, если он достаточно длинный
+        path.pop()  # Удаляем последнюю вершину
+        print(f"Удалена последняя вершина. Новый путь: {path}")
+    
+    elif action == 'swap':  # Меняем местами две случайные вершины
+        if len(path) > 1:  # Нужно хотя бы 2 вершины для обмена
+            i = random.randint(0, len(path) - 1)
+            j = random.randint(0, len(path) - 1)
+            path[i], path[j] = path[j], path[i]
+            print(f"Обменены вершины {path[i]} и {path[j]}. Новый путь: {path}")
+    
+    elif action == 'reshuffle':  # Перемешиваем путь
+        random.shuffle(path)
+        print(f"Все перемешано. Новый путь: {path}")
+
+    if len(path) > max_path_length:
+        random.shuffle(path)
+        path = path[:max_path_length]
+
+        print(f"Длина пути больше максимальной. Обрезан путь до {max_path_length} вершин: {path}")
+    
+    if len(path) == 6 and path[0] == 'C':
+        print(f"Особый путь: {path}")
+    return path
 # Генетический алгоритм
-def genetic_algorithm(graph, start_node, population_size=1000, generations=10000):
+def genetic_algorithm(graph, start_node, population_size=100, generations=10000):
     edges = [(u, v) for u in graph for v in graph[u]]
-    pprint(edges)
     population = initialize_population(population_size, start_node, graph, edges)
+
     for generation in range(generations):
         # Оценка приспособленности
         population = sorted(population, key=lambda path: fitness(path, edges), reverse=True)
         best_fitness = fitness(population[0], edges)
+        
         if best_fitness == len(edges) and (is_eulerian_path_in_graph(graph,  population[0])):  # Если покрыты все рёбра
             return population[0]
         # Отбор лучших особей
@@ -59,8 +101,8 @@ def genetic_algorithm(graph, start_node, population_size=1000, generations=10000
         while len(next_generation) < population_size:
             parent1, parent2 = random.sample(next_generation, 2)
             child = crossover(parent1, parent2)
-            if random.random() < 0.5:  # Мутация с вероятностью 30%
-                mutate(child)
+            if random.random() < 0.6:  # Мутация с вероятностью 30%
+                mutate(child, graph)
             next_generation.append(child)
         population = next_generation
     return None  # Если путь не найден
