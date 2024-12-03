@@ -1,5 +1,6 @@
 import random
 from pprint import pprint
+from collections import defaultdict
 
 # Функция для оценки приспособленности пути
 def fitness(path, edges):
@@ -42,7 +43,7 @@ def mutate(path):
         path[i], path[j] = path[j], path[i]
 
 # Генетический алгоритм
-def genetic_algorithm(graph, start_node, population_size=50, generations=100):
+def genetic_algorithm(graph, start_node, population_size=1000, generations=10000):
     edges = [(u, v) for u in graph for v in graph[u]]
     pprint(edges)
     population = initialize_population(population_size, start_node, graph, edges)
@@ -50,7 +51,7 @@ def genetic_algorithm(graph, start_node, population_size=50, generations=100):
         # Оценка приспособленности
         population = sorted(population, key=lambda path: fitness(path, edges), reverse=True)
         best_fitness = fitness(population[0], edges)
-        if best_fitness == len(edges):  # Если покрыты все рёбра
+        if best_fitness == len(edges) and (is_eulerian_path_in_graph(graph,  population[0])):  # Если покрыты все рёбра
             return population[0]
         # Отбор лучших особей
         next_generation = population[:population_size // 2]
@@ -58,7 +59,7 @@ def genetic_algorithm(graph, start_node, population_size=50, generations=100):
         while len(next_generation) < population_size:
             parent1, parent2 = random.sample(next_generation, 2)
             child = crossover(parent1, parent2)
-            if random.random() < 0.3:  # Мутация с вероятностью 30%
+            if random.random() < 0.5:  # Мутация с вероятностью 30%
                 mutate(child)
             next_generation.append(child)
         population = next_generation
@@ -120,3 +121,70 @@ def find_eulerian_path(graph):
         return None
 
     return path[::-1]  # Возвращаем путь в правильном порядке
+
+def is_eulerian_path_in_graph(graph, path):
+    """
+    Проверяет, является ли переданный путь эйлеровым обходом в ориентированном графе.
+    
+    graph - это словарь, где ключи - вершины, а значения - список соседей (рёбер).
+    path - список, представляющий путь в графе (порядок вершин).
+    """
+    
+    # Проверяем, что путь не пустой и состоит из как минимум двух вершин
+    if not path or len(path) < 2:
+        return False
+    
+    used_edges = set()  # Множество для отслеживания использованных рёбер
+    graph_copy = {k: list(v) for k, v in graph.items()}  # Копия графа для безопасного удаления рёбер
+    
+    # Проходим по пути и проверяем, что все рёбра правильно используются
+    for i in range(len(path) - 1):
+        start = path[i]
+        end = path[i + 1]
+        
+        # Проверяем, что существует ребро от start к end
+        if end not in graph_copy.get(start, []):
+            # print(f"Ошибка: нет рёбра {start} -> {end}")
+            return False
+        
+        edge = (start, end)
+        if edge in used_edges:
+            # print(f"Ошибка: ребро {start} -> {end} уже использовано")
+            return False
+        
+        used_edges.add(edge)
+        graph_copy[start].remove(end)  # Убираем использованное ребро
+    
+    # Проверяем, что все рёбра из графа использованы
+    for node, neighbors in graph_copy.items():
+        if neighbors:
+            # print(f"Ошибка: не все рёбра использованы для вершины {node}")
+            return False
+    
+    # Проверка степеней входа и исхода для ориентированного графа
+    in_degrees = defaultdict(int)
+    out_degrees = defaultdict(int)
+    
+    for start, neighbors in graph_copy.items():
+        for end in neighbors:
+            out_degrees[start] += 1
+            in_degrees[end] += 1
+    
+    start_nodes = 0
+    end_nodes = 0
+    
+    for node in set(list(in_degrees.keys()) + list(out_degrees.keys())):
+        in_deg = in_degrees[node]
+        out_deg = out_degrees[node]
+        
+        if in_deg == out_deg:
+            continue
+        elif in_deg + 1 == out_deg:
+            start_nodes += 1
+        elif out_deg + 1 == in_deg:
+            end_nodes += 1
+        else:
+            print(f"Ошибка: Неверные степени для вершины {node}")
+            return False
+    
+    return start_nodes <= 1 and end_nodes <= 1
